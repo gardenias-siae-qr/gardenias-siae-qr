@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GARDENIAS SIAE QR — Lector independiente</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    *{box-sizing:border-box}body{font-family:Arial,sans-serif;background:#f2f6fb;color:#17365d;margin:0;padding:18px}
+    main{max-width:760px;margin:18px auto;background:white;border-radius:16px;padding:22px;box-shadow:0 4px 18px #17365d18}
+    h1{font-size:24px;margin-top:0}.note{color:#53677e;line-height:1.45}.field{display:block;margin:14px 0 6px;font-weight:bold}
+    input,select{width:100%;padding:12px;border:1px solid #c8d5e5;border-radius:9px;font-size:16px}
+    button{border:0;border-radius:9px;padding:13px 18px;background:#2167b2;color:white;font-weight:bold;font-size:16px;margin:12px 8px 0 0}
+    button.secondary{background:#e2eaf4;color:#17365d}#reader{width:100%;max-width:480px;margin:18px auto}#status{padding:12px;background:#edf4fc;border-radius:9px;margin-top:14px;line-height:1.45;overflow-wrap:anywhere}
+    .warning{background:#fff6df;padding:12px;border-radius:9px;color:#76520b}small{color:#65758a}
+  </style>
+</head>
+<body>
+<main>
+  <h1>🌿 GARDENIAS SIAE QR</h1>
+  <p class="note">Lector QR independiente para la demostración académica. Usa únicamente las credenciales ficticias del proyecto.</p>
+  <label class="field" for="webapp">Dirección de la aplicación web de Google Apps Script</label>
+  <input id="webapp" type="url" placeholder="https://script.google.com/macros/s/...../exec" autocomplete="url">
+  <label class="field" for="pin">PIN de acceso</label>
+  <input id="pin" type="password" placeholder="Escribe tu PIN" autocomplete="off">
+  <label class="field" for="movement">Tipo de movimiento</label>
+  <select id="movement"><option value="INGRESO">INGRESO</option><option value="SALIDA">SALIDA</option></select>
+  <div id="reader"></div>
+  <button id="start" type="button" onclick="startScanner()">Iniciar cámara</button>
+  <button class="secondary" type="button" onclick="stopScanner()">Detener cámara</button>
+  <div id="status" role="status">Completa la dirección de Apps Script y tu PIN. Luego inicia la cámara.</div>
+  <p class="warning"><b>Importante:</b> al reconocer un QR, se abrirá otra pestaña para confirmar el registro. No cierres esa pestaña hasta ver el resultado.</p>
+  <small>Prototipo con datos ficticios. No usar con información real de menores.</small>
+  <form id="postForm" method="post" target="_blank" style="display:none">
+    <input name="pin"><input name="studentId"><input name="movement">
+  </form>
+</main>
+<script>
+let qrScanner=null, active=false, submitting=false;
+function status(message,isError=false){const el=document.getElementById('status');el.textContent=message;el.style.color=isError?'#b42318':'#17365d';}
+function startScanner(){
+  const url=document.getElementById('webapp').value.trim();
+  const pin=document.getElementById('pin').value;
+  if(!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec(?:\?.*)?$/.test(url)){status('Pega la URL de implementación de Apps Script que termina en /exec.',true);return;}
+  if(!pin){status('Escribe el PIN de acceso.',true);return;}
+  if(!window.Html5Qrcode){status('No se pudo cargar la biblioteca del lector. Revisa tu conexión.',true);return;}
+  if(active){status('La cámara ya está activa.');return;}
+  qrScanner=new Html5Qrcode('reader');
+  qrScanner.start({facingMode:'environment'},{fps:10,qrbox:{width:240,height:240}},onDecoded)
+    .then(()=>{active=true;status('Cámara activa. Enfoca una credencial QR ficticia.');})
+    .catch(err=>status('No se pudo iniciar la cámara: '+err,true));
+}
+function onDecoded(decoded){
+  if(submitting)return;
+  const id=String(decoded||'').trim();
+  if(!/^ALU-50[1-5]$/.test(id)){status('QR no reconocido. Utiliza una credencial ficticia del proyecto.',true);return;}
+  submitting=true;stopScanner();
+  const form=document.getElementById('postForm');
+  form.action=document.getElementById('webapp').value.trim();
+  form.elements.pin.value=document.getElementById('pin').value;
+  form.elements.studentId.value=id;
+  form.elements.movement.value=document.getElementById('movement').value;
+  status('QR leído: '+id+'. Se está enviando el registro a Google Sheets…');
+  form.submit();
+  status('Se abrió una pestaña para mostrar el resultado del registro. Revisa esa pestaña.');
+  setTimeout(()=>{submitting=false;},4000);
+}
+function stopScanner(){if(qrScanner&&active){qrScanner.stop().then(()=>{qrScanner.clear();active=false;}).catch(()=>{active=false;});}}
+</script>
+</body>
+</html>
